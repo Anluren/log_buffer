@@ -1,5 +1,6 @@
 #include "log_buffer/logger.hpp"
 #include <gtest/gtest.h>
+#include <ios>
 #include <cstring>
 
 using namespace log_buffer;
@@ -253,4 +254,192 @@ TEST_F(LoggerTest, BinaryDataStructChaining) {
     EXPECT_EQ(buffer[0], 0xFF);
     EXPECT_EQ(buffer[1], 0xEE);
     EXPECT_STREQ(reinterpret_cast<const char*>(buffer + 2), "END");
+}
+
+TEST_F(LoggerTest, IntegerFormatDecimal) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Dec);
+    logger.log(255);
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "255");
+}
+
+TEST_F(LoggerTest, IntegerFormatHexLowercase) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex);
+    logger.log(255);
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0xff");
+}
+
+TEST_F(LoggerTest, IntegerFormatHexUppercase) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::HEX);
+    logger.log(255);
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0XFF");
+}
+
+TEST_F(LoggerTest, IntegerFormatOctal) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Oct);
+    logger.log(64);
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0100");
+}
+
+TEST_F(LoggerTest, IntegerFormatChaining) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex).log(16);
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0x10");
+}
+
+TEST_F(LoggerTest, IntegerFormatMixed) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Dec);
+    logger.log(10);
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex);
+    logger.log(10);
+    
+    logger.set_int_format(log_buffer::IntFormat::Oct);
+    logger.log(10);
+    
+    const char* ptr = reinterpret_cast<const char*>(buffer);
+    EXPECT_STREQ(ptr, "10");
+    ptr += 3;
+    EXPECT_STREQ(ptr, "0xa");
+    ptr += 4;
+    EXPECT_STREQ(ptr, "012");
+}
+
+TEST_F(LoggerTest, GetIntFormat) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    EXPECT_EQ(logger.get_int_format(), log_buffer::IntFormat::Dec);
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex);
+    EXPECT_EQ(logger.get_int_format(), log_buffer::IntFormat::Hex);
+}
+
+TEST_F(LoggerTest, StreamOperatorWithFormatDecimal) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Dec);
+    logger << 42;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "42");
+}
+
+TEST_F(LoggerTest, StreamOperatorWithFormatHex) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex);
+    logger << 255;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0xff");
+}
+
+TEST_F(LoggerTest, StreamOperatorWithFormatHexUppercase) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::HEX);
+    logger << 255;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0XFF");
+}
+
+TEST_F(LoggerTest, StreamOperatorWithFormatOctal) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Oct);
+    logger << 64;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0100");
+}
+
+TEST_F(LoggerTest, StreamOperatorWithFormatMixedChaining) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger.set_int_format(log_buffer::IntFormat::Dec);
+    logger << 10;
+    
+    logger.set_int_format(log_buffer::IntFormat::Hex);
+    logger << 10;
+    
+    logger.set_int_format(log_buffer::IntFormat::Oct);
+    logger << 10;
+    
+    const char* ptr = reinterpret_cast<const char*>(buffer);
+    EXPECT_STREQ(ptr, "10");
+    ptr += 3;
+    EXPECT_STREQ(ptr, "0xa");
+    ptr += 4;
+    EXPECT_STREQ(ptr, "012");
+}
+
+TEST_F(LoggerTest, StdManipulatorHex) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << std::hex << 255;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0xff");
+}
+
+TEST_F(LoggerTest, StdManipulatorDec) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << std::dec << 42;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "42");
+}
+
+TEST_F(LoggerTest, StdManipulatorOct) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << std::oct << 64;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0100");
+}
+
+TEST_F(LoggerTest, StdManipulatorHexUppercase) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << std::hex << std::uppercase << 255;
+    
+    EXPECT_STREQ(reinterpret_cast<const char*>(buffer), "0XFF");
+}
+
+TEST_F(LoggerTest, StdManipulatorChaining) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << std::dec << 10 << std::hex << 16 << std::oct << 8;
+    
+    const char* ptr = reinterpret_cast<const char*>(buffer);
+    EXPECT_STREQ(ptr, "10");
+    ptr += 3;
+    EXPECT_STREQ(ptr, "0x10");
+    ptr += 5;
+    EXPECT_STREQ(ptr, "010");
+}
+
+TEST_F(LoggerTest, StdManipulatorMixedWithStrings) {
+    Logger logger(buffer, sizeof(buffer));
+    
+    logger << "Value: " << std::hex << 255 << " End";
+    
+    // Check each part of the buffer
+    const char* ptr = reinterpret_cast<const char*>(buffer);
+    EXPECT_STREQ(ptr, "Value: ");
+    ptr += 8;  // "Value: " + null = 8 bytes
+    EXPECT_STREQ(ptr, "0xff");
+    ptr += 5;  // "0xff" + null = 5 bytes
+    EXPECT_STREQ(ptr, " End");
 }

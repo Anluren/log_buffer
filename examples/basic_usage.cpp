@@ -16,7 +16,7 @@ int main() {
     logger.log(1701436800);
     
     // Log raw binary data
-    uint8_t binary_data[] = {0xDE, 0xAD, 0xBE, 0xEF};
+    uint8_t binary_data[]  {0xDE, 0xAD, 0xBE, 0xEF};
     logger.log(binary_data, sizeof(binary_data));
     
     // Check status

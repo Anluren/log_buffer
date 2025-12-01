@@ -15,7 +15,10 @@ A lightweight, header-only C++17 logging library that writes to a user-provided 
 
 - **Raw C buffers**: `uint8_t*` with size (binary data)
 - **Strings**: `std::string_view`, `const char*`, `std::string` (null-terminated)
-- **Integers**: All integral types (formatted as ASCII decimal with null terminator)
+- **Integers**: All integral types with configurable format:
+  - Decimal (default)
+  - Hexadecimal (lowercase or uppercase)
+  - Octal
 
 ## Quick Start
 
@@ -31,6 +34,25 @@ logger.log("Hello, World!");
 // Log integers
 logger.log(42);
 logger.log(-123);
+
+// Log integers in different formats
+logger.set_int_format(log_buffer::IntFormat::Hex);
+logger.log(255);  // Writes "0xff"
+
+logger.set_int_format(log_buffer::IntFormat::HEX);
+logger.log(255);  // Writes "0XFF"
+
+logger.set_int_format(log_buffer::IntFormat::Oct);
+logger.log(64);   // Writes "0100"
+
+// Or use standard manipulators (std::hex, std::dec, std::oct, std::uppercase)
+logger << std::hex << 255;  // Writes "0xff"
+logger << std::hex << std::uppercase << 255;  // Writes "0XFF"
+logger << std::oct << 64;   // Writes "0100"
+logger << std::dec << 42;   // Writes "42"
+
+// Stream-style logging with format control
+logger << "Value: " << std::hex << 255 << " End";  // Writes "Value: 0xff End"
 
 // Log raw binary data
 uint8_t data[] = {0xDE, 0xAD, 0xBE, 0xEF};
@@ -79,9 +101,38 @@ bool log(const uint8_t* data, size_t size)  // Raw binary data
 bool log(std::string_view str)              // String (null-terminated)
 bool log(const char* str)                   // C string (null-terminated)
 bool log(const std::string& str)            // std::string (null-terminated)
-bool log(T value)                           // Integer (ASCII decimal, null-terminated)
+bool log(T value)                           // Integer (formatted per current format)
 ```
 Returns `true` on success, `false` if buffer overflow would occur.
+
+### Integer Format Control
+```cpp
+Logger& set_int_format(IntFormat format)    // Set format (Dec, Hex, HEX, Oct)
+IntFormat get_int_format() const            // Get current format
+```
+Format options:
+- `IntFormat::Dec` - Decimal (e.g., "42")
+- `IntFormat::Hex` - Hexadecimal lowercase with 0x prefix (e.g., "0x2a")
+- `IntFormat::HEX` - Hexadecimal uppercase with 0X prefix (e.g., "0X2A")
+- `IntFormat::Oct` - Octal with 0 prefix (e.g., "052")
+
+### Stream Operators
+```cpp
+Logger& operator<<(const uint8_t* data, size_t size)
+Logger& operator<<(std::string_view str)
+Logger& operator<<(const char* str)
+Logger& operator<<(const std::string& str)
+Logger& operator<<(T value)  // Integers use current format setting
+Logger& operator<<(BinaryData{ptr, size})  // Convenient binary data syntax
+Logger& operator<<(std::ios_base& (*manip)(std::ios_base&))  // std::hex, std::dec, std::oct, std::uppercase
+```
+
+Supported standard manipulators:
+- `std::hex` - Switch to hexadecimal format (lowercase)
+- `std::dec` - Switch to decimal format (default)
+- `std::oct` - Switch to octal format
+- `std::uppercase` - Make hex uppercase (when in hex mode)
+- `std::nouppercase` - Make hex lowercase (when in hex mode)
 
 ### Status Methods
 ```cpp
@@ -133,6 +184,32 @@ g++ -std=c++17 -Iinclude examples/basic_usage.cpp -o basic_usage
 MIT (or specify your license)
 
 ## Examples
+
+### Integer Formatting
+```cpp
+uint8_t buffer[512];
+log_buffer::Logger logger(buffer, sizeof(buffer));
+
+// Using standard manipulators (recommended)
+logger << std::hex << 255;  // "0xff"
+logger << std::hex << std::uppercase << 255;  // "0XFF"
+logger << std::oct << 64;   // "0100"
+logger << std::dec << 42;   // "42"
+
+// Or using set_int_format()
+logger.set_int_format(log_buffer::IntFormat::Hex);
+logger.log(255);  // "0xff"
+
+logger.set_int_format(log_buffer::IntFormat::HEX);
+logger.log(255);  // "0XFF"
+
+logger.set_int_format(log_buffer::IntFormat::Oct);
+logger.log(64);   // "0100"
+
+// Mix formats in one buffer
+logger << std::dec << "Dec: " << 16 << " ";
+logger << std::hex << "Hex: " << 16;  // "Dec: 16 Hex: 0x10"
+```
 
 ### Structured Logging
 ```cpp

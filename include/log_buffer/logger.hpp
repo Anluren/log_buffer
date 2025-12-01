@@ -6,8 +6,20 @@
 #include <string_view>
 #include <charconv>
 #include <type_traits>
+#include <ios>
 
 namespace log_buffer {
+
+/**
+ * @enum IntFormat
+ * @brief Integer formatting options for logging.
+ */
+enum class IntFormat {
+    Dec,  ///< Decimal format (base 10)
+    Hex,  ///< Hexadecimal format (base 16, lowercase)
+    HEX,  ///< Hexadecimal format (base 16, uppercase)
+    Oct   ///< Octal format (base 8)
+};
 
 /**
  * @struct BinaryData
@@ -59,7 +71,7 @@ public:
      * @note The buffer is not initialized or cleared by the constructor.
      */
     inline Logger(uint8_t* buffer, std::size_t size) noexcept
-        : m_buffer(buffer), m_capacity(size), m_position(0), m_overflow(false) {}
+        : m_buffer(buffer), m_capacity(size), m_position(0), m_overflow(false), m_int_format(IntFormat::Dec) {}
 
     /**
      * @brief Get the number of bytes written to the buffer.
@@ -96,6 +108,26 @@ public:
     inline void reset() noexcept {
         m_position = 0;
         m_overflow = false;
+    }
+
+    /**
+     * @brief Set the integer format for subsequent integer logging.
+     * 
+     * @param format The format to use (Dec, Hex, HEX, Oct).
+     * @return Reference to this Logger for chaining.
+     */
+    inline Logger& set_int_format(IntFormat format) noexcept {
+        m_int_format = format;
+        return *this;
+    }
+
+    /**
+     * @brief Get the current integer format.
+     * 
+     * @return The current integer format setting.
+     */
+    inline IntFormat get_int_format() const noexcept {
+        return m_int_format;
     }
 
     /**
@@ -164,10 +196,10 @@ public:
     }
 
     /**
-     * @brief Log an integer value as ASCII decimal text with null terminator.
+     * @brief Log an integer value as ASCII text with null terminator.
      * 
-     * Converts the integer to its ASCII decimal representation and writes it
-     * followed by a null terminator. Uses std::to_chars for efficient conversion
+     * Converts the integer according to the current format setting (decimal, hex, or octal)
+     * and writes it followed by a null terminator. Uses std::to_chars for efficient conversion
      * without locale dependency or allocations.
      * 
      * @tparam T Any integral type (int, uint32_t, int64_t, etc.)
@@ -175,16 +207,50 @@ public:
      * @return true if successful, false if conversion fails or buffer overflow would occur.
      * 
      * @note Negative numbers include the '-' sign.
-     * @note Maximum space required: 21 bytes (20 digits + null for int64_t min value).
+     * @note Maximum space required: 68 bytes (64 bits in binary + prefix + null).
      */
     template<typename T>
     inline std::enable_if_t<std::is_integral_v<T>, bool> log(T value) noexcept {
-        // Reserve space for conversion (max 20 chars for int64_t + null terminator)
-        char temp_buffer[21];
-        auto result = std::to_chars(temp_buffer, temp_buffer + sizeof(temp_buffer) - 1, value);
+        // Reserve space for conversion (64 bits in any base + prefix + null)
+        char temp_buffer[68];
+        char* start = temp_buffer;
+        
+        // Add prefix for hex/oct if needed
+        int base = 10;
+        switch (m_int_format) {
+            case IntFormat::Hex:
+                *start++ = '0';
+                *start++ = 'x';
+                base = 16;
+                break;
+            case IntFormat::HEX:
+                *start++ = '0';
+                *start++ = 'X';
+                base = 16;
+                break;
+            case IntFormat::Oct:
+                *start++ = '0';
+                base = 8;
+                break;
+            case IntFormat::Dec:
+            default:
+                base = 10;
+                break;
+        }
+        
+        auto result = std::to_chars(start, temp_buffer + sizeof(temp_buffer) - 1, value, base);
         
         if (result.ec != std::errc{}) {
             return false;
+        }
+        
+        // Convert to uppercase if HEX format
+        if (m_int_format == IntFormat::HEX) {
+            for (char* p = start; p < result.ptr; ++p) {
+                if (*p >= 'a' && *p <= 'f') {
+                    *p = *p - 'a' + 'A';
+                }
+            }
         }
         
         const std::size_t str_length = result.ptr - temp_buffer;
@@ -290,11 +356,69 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Stream insertion operator for std::ios_base manipulators.
+     * 
+     * Supports standard manipulators like std::hex, std::dec, std::oct, std::uppercase.
+     * 
+     * @param manip The manipulator function pointer.
+     * @return Reference to this Logger for chaining.
+     * 
+     * @note std::uppercase affects hex format (Hex -> HEX), while std::nouppercase
+     *       resets to lowercase hex.
+     */
+    inline Logger& operator<<(std::ios_base& (*manip)(std::ios_base&)) noexcept {
+        // Detect which manipulator by calling it on a test stream and checking flags
+        
+        // Use a dummy ios_base-derived object to detect the manipulator
+        struct DummyStream : std::ios {
+            DummyStream() : std::ios(nullptr) {}
+        } dummy;
+        
+        std::ios_base::fmtflags old_flags = dummy.flags();
+        manip(dummy);
+        std::ios_base::fmtflags new_flags = dummy.flags();
+        
+        // Check if basefield changed
+        auto old_basefield = old_flags & std::ios_base::basefield;
+        auto new_basefield = new_flags & std::ios_base::basefield;
+        
+        if (old_basefield != new_basefield) {
+            // Basefield changed - handle hex/oct/dec
+            if (new_basefield == std::ios_base::hex) {
+                // Check uppercase flag
+                if (new_flags & std::ios_base::uppercase) {
+                    m_int_format = IntFormat::HEX;
+                } else {
+                    m_int_format = IntFormat::Hex;
+                }
+            } else if (new_basefield == std::ios_base::oct) {
+                m_int_format = IntFormat::Oct;
+            } else if (new_basefield == std::ios_base::dec) {
+                m_int_format = IntFormat::Dec;
+            }
+        } else {
+            // Basefield didn't change - check if uppercase flag changed
+            bool old_uppercase = old_flags & std::ios_base::uppercase;
+            bool new_uppercase = new_flags & std::ios_base::uppercase;
+            
+            if (old_uppercase != new_uppercase) {
+                // uppercase flag changed - update format if currently in hex mode
+                if (m_int_format == IntFormat::Hex || m_int_format == IntFormat::HEX) {
+                    m_int_format = new_uppercase ? IntFormat::HEX : IntFormat::Hex;
+                }
+            }
+        }
+        
+        return *this;
+    }
+
 private:
-    uint8_t* m_buffer;      ///< Pointer to the user-provided buffer
-    std::size_t m_capacity; ///< Total capacity of the buffer in bytes
-    std::size_t m_position; ///< Current write position in the buffer
-    bool m_overflow;        ///< Flag indicating if overflow has occurred
+    uint8_t* m_buffer;         ///< Pointer to the user-provided buffer
+    std::size_t m_capacity;    ///< Total capacity of the buffer in bytes
+    std::size_t m_position;    ///< Current write position in the buffer
+    bool m_overflow;           ///< Flag indicating if overflow has occurred
+    IntFormat m_int_format;    ///< Current integer format setting
 };
 
 } // namespace log_buffer
