@@ -206,7 +206,7 @@ TEST_F(LoggerTest, StreamOperatorBinaryData) {
     Logger logger(buffer, sizeof(buffer));
     
     uint8_t data[] = {0xDE, 0xAD, 0xBE, 0xEF};
-    logger << std::make_pair(data, sizeof(data));
+    logger << std::pair{data, sizeof(data)};
     
     EXPECT_EQ(logger.bytes_written(), 4);
     EXPECT_EQ(buffer[0], 0xDE);
@@ -221,9 +221,9 @@ TEST_F(LoggerTest, StreamOperatorBinaryDataChaining) {
     uint8_t data1[] = {0x01, 0x02};
     uint8_t data2[] = {0x03, 0x04};
     
-    logger << std::make_pair(data1, sizeof(data1)) 
+    logger << std::pair{data1, sizeof(data1)} 
            << "test" 
-           << std::make_pair(data2, sizeof(data2));
+           << std::pair{data2, sizeof(data2)};
     
     EXPECT_EQ(buffer[0], 0x01);
     EXPECT_EQ(buffer[1], 0x02);
