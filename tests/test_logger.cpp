@@ -88,11 +88,11 @@ TEST_F(LoggerTest, MultipleLogs) {
     // Verify data
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "Name:");
-    ptr += 6;
+    ptr += sizeof("Name:");
     EXPECT_STREQ(ptr, "Alice");
-    ptr += 6;
+    ptr += sizeof("Alice");
     EXPECT_STREQ(ptr, "Age:");
-    ptr += 5;
+    ptr += sizeof("Age:");
     EXPECT_STREQ(ptr, "30");
 }
 
@@ -156,9 +156,9 @@ TEST_F(LoggerTest, StreamOperatorString) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "Hello");
-    ptr += 6;
+    ptr += sizeof("Hello");
     EXPECT_STREQ(ptr, " ");
-    ptr += 2;
+    ptr += sizeof(" ");
     EXPECT_STREQ(ptr, "World");
 }
 
@@ -169,9 +169,9 @@ TEST_F(LoggerTest, StreamOperatorInteger) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "42");
-    ptr += 3;
+    ptr += sizeof("42");
     EXPECT_STREQ(ptr, "-100");
-    ptr += 5;
+    ptr += sizeof("-100");
     EXPECT_STREQ(ptr, "999");
 }
 
@@ -182,11 +182,11 @@ TEST_F(LoggerTest, StreamOperatorMixed) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "Count: ");
-    ptr += 8;
+    ptr += sizeof("Count: ");
     EXPECT_STREQ(ptr, "5");
-    ptr += 2;
+    ptr += sizeof("5");
     EXPECT_STREQ(ptr, " Name: ");
-    ptr += 8;
+    ptr += sizeof(" Name: ");
     EXPECT_STREQ(ptr, "Alice");
 }
 
@@ -314,9 +314,9 @@ TEST_F(LoggerTest, IntegerFormatMixed) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "10");
-    ptr += 3;
+    ptr += sizeof("10");
     EXPECT_STREQ(ptr, "0xa");
-    ptr += 4;
+    ptr += sizeof("0xa");
     EXPECT_STREQ(ptr, "012");
 }
 
@@ -379,9 +379,9 @@ TEST_F(LoggerTest, StreamOperatorWithFormatMixedChaining) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "10");
-    ptr += 3;
+    ptr += sizeof("10");
     EXPECT_STREQ(ptr, "0xa");
-    ptr += 4;
+    ptr += sizeof("0xa");
     EXPECT_STREQ(ptr, "012");
 }
 
@@ -424,9 +424,9 @@ TEST_F(LoggerTest, StdManipulatorChaining) {
     
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "10");
-    ptr += 3;
+    ptr += sizeof("10");
     EXPECT_STREQ(ptr, "0x10");
-    ptr += 5;
+    ptr += sizeof("0x10");
     EXPECT_STREQ(ptr, "010");
 }
 
@@ -438,8 +438,8 @@ TEST_F(LoggerTest, StdManipulatorMixedWithStrings) {
     // Check each part of the buffer
     const char* ptr = reinterpret_cast<const char*>(buffer);
     EXPECT_STREQ(ptr, "Value: ");
-    ptr += 8;  // "Value: " + null = 8 bytes
+    ptr += sizeof("Value: ");
     EXPECT_STREQ(ptr, "0xff");
-    ptr += 5;  // "0xff" + null = 5 bytes
+    ptr += sizeof("0xff");
     EXPECT_STREQ(ptr, " End");
 }
