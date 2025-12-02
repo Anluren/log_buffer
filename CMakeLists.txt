@@ -13,13 +13,19 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Header-only library
-add_library(log_buffer INTERFACE)
-target_include_directories(log_buffer INTERFACE
+# Compiled library (static by default, can be shared with -DBUILD_SHARED_LIBS=ON)
+add_library(log_buffer src/logger.cpp)
+target_include_directories(log_buffer PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_compile_features(log_buffer INTERFACE cxx_std_17)
+target_compile_features(log_buffer PUBLIC cxx_std_17)
+
+# Optional: Add compile options for smaller code size
+target_compile_options(log_buffer PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Os>
+    $<$<CXX_COMPILER_ID:MSVC>:/Os>
+)
 
 # Examples
 add_executable(basic_usage examples/basic_usage.cpp)

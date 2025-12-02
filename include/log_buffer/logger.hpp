@@ -139,15 +139,7 @@ public:
      * @param size Number of bytes to write.
      * @return true if successful, false if buffer overflow would occur.
      */
-    inline bool log(const uint8_t* data, std::size_t size) noexcept {
-        if (size > remaining_capacity()) {
-            m_overflow = true;
-            return false;
-        }
-        std::memcpy(m_buffer + m_position, data, size);
-        m_position += size;
-        return true;
-    }
+    bool log(const uint8_t* data, std::size_t size) noexcept;
 
     /**
      * @brief Log a std::string_view with null terminator.
@@ -159,17 +151,7 @@ public:
      * 
      * @note Requires str.size() + 1 bytes of available capacity.
      */
-    inline bool log(std::string_view str) noexcept {
-        const std::size_t total_size = str.size() + 1; // +1 for null terminator
-        if (total_size > remaining_capacity()) {
-            m_overflow = true;
-            return false;
-        }
-        std::memcpy(m_buffer + m_position, str.data(), str.size());
-        m_buffer[m_position + str.size()] = '\0';
-        m_position += total_size;
-        return true;
-    }
+    bool log(std::string_view str) noexcept;
 
     /**
      * @brief Log a C string (const char*) with null terminator.
@@ -254,17 +236,7 @@ public:
         }
         
         const std::size_t str_length = result.ptr - temp_buffer;
-        const std::size_t total_size = str_length + 1; // +1 for null terminator
-        
-        if (total_size > remaining_capacity()) {
-            m_overflow = true;
-            return false;
-        }
-        
-        std::memcpy(m_buffer + m_position, temp_buffer, str_length);
-        m_buffer[m_position + str_length] = '\0';
-        m_position += total_size;
-        return true;
+        return log_formatted_string(temp_buffer, str_length);
     }
 
     /**
@@ -367,53 +339,18 @@ public:
      * @note std::uppercase affects hex format (Hex -> HEX), while std::nouppercase
      *       resets to lowercase hex.
      */
-    inline Logger& operator<<(std::ios_base& (*manip)(std::ios_base&)) noexcept {
-        // Detect which manipulator by calling it on a test stream and checking flags
-        
-        // Use a dummy ios_base-derived object to detect the manipulator
-        struct DummyStream : std::ios {
-            DummyStream() : std::ios(nullptr) {}
-        } dummy;
-        
-        std::ios_base::fmtflags old_flags = dummy.flags();
-        manip(dummy);
-        std::ios_base::fmtflags new_flags = dummy.flags();
-        
-        // Check if basefield changed
-        auto old_basefield = old_flags & std::ios_base::basefield;
-        auto new_basefield = new_flags & std::ios_base::basefield;
-        
-        if (old_basefield != new_basefield) {
-            // Basefield changed - handle hex/oct/dec
-            if (new_basefield == std::ios_base::hex) {
-                // Check uppercase flag
-                if (new_flags & std::ios_base::uppercase) {
-                    m_int_format = IntFormat::HEX;
-                } else {
-                    m_int_format = IntFormat::Hex;
-                }
-            } else if (new_basefield == std::ios_base::oct) {
-                m_int_format = IntFormat::Oct;
-            } else if (new_basefield == std::ios_base::dec) {
-                m_int_format = IntFormat::Dec;
-            }
-        } else {
-            // Basefield didn't change - check if uppercase flag changed
-            bool old_uppercase = old_flags & std::ios_base::uppercase;
-            bool new_uppercase = new_flags & std::ios_base::uppercase;
-            
-            if (old_uppercase != new_uppercase) {
-                // uppercase flag changed - update format if currently in hex mode
-                if (m_int_format == IntFormat::Hex || m_int_format == IntFormat::HEX) {
-                    m_int_format = new_uppercase ? IntFormat::HEX : IntFormat::Hex;
-                }
-            }
-        }
-        
-        return *this;
-    }
+    Logger& operator<<(std::ios_base& (*manip)(std::ios_base&)) noexcept;
 
 private:
+    /**
+     * @brief Helper function to log a formatted string with null terminator.
+     * 
+     * @param str Pointer to the formatted string buffer.
+     * @param length Length of the string (without null terminator).
+     * @return true if successful, false if buffer overflow would occur.
+     */
+    bool log_formatted_string(const char* str, std::size_t length) noexcept;
+
     uint8_t* m_buffer;         ///< Pointer to the user-provided buffer
     std::size_t m_capacity;    ///< Total capacity of the buffer in bytes
     std::size_t m_position;    ///< Current write position in the buffer
